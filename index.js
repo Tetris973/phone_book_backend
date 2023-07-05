@@ -1,9 +1,14 @@
+// 1. Imports and Basic Setup
 require('dotenv').config()
 const express = require('express')
 const app = express()
 const morgan = require('morgan')
 const Person = require('./models/person')
 
+app.use(express.static('build'))
+app.use(express.json())
+
+// 2. Middleware
 morgan.token('body', function (req, res) {
   return JSON.stringify(req.body)
 })
@@ -21,24 +26,14 @@ const format = morgan(function (tokens, req, res) {
   ].join(' ')
 })
 
-const errorHandler = (error, request, response, next) => {
-  console.error(error.message)
-  if (error.name === 'CastError') {
-    return response.status(400).send({ error: 'malformatted id' })
-  } else if (error.name === 'ValidationError') {
-    return response.status(400).json({ error: error.message })
-  }
-  next(error)
-}
-
-app.use(express.static('build'))
 app.use(format)
-app.use(express.json())
 
+// 3. Routes
 app.get('/', (request, response) => {
   response.send('<h1>Hello World!</h1>')
 })
 
+// Person routes
 app.get('/api/persons', (request, response) => {
   Person.find({}).then((persons) => {
     response.json(persons)
@@ -74,11 +69,13 @@ app.post('/api/persons', (request, response, next) => {
       error: 'name missing',
     })
   }
+
   if (!body.number) {
     return response.status(400).json({
       error: 'number missing',
     })
   }
+
   Person.find({ name: body.name }).then((persons) => {
     if (persons.length > 0) {
       return response.status(400).json({
@@ -117,10 +114,21 @@ app.put('/api/persons/:id', (request, response, next) => {
     .catch((error) => next(error))
 })
 
+// 4. Error Handlers
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message)
+  if (error.name === 'CastError') {
+    return response.status(400).send({ error: 'malformatted id' })
+  } else if (error.name === 'ValidationError') {
+    return response.status(400).json({ error: error.message })
+  }
+
+  next(error)
+}
 app.use(errorHandler)
 
+// 5. Server Setup
 const PORT = process.env.PORT
-
 app.listen(PORT, () => {
   console.log(`Server running on http://127.0.0.1:${PORT}`)
 })
